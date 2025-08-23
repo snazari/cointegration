@@ -1,0 +1,8 @@
+pandas
+numpy
+statsmodels
+twelvedata
+PyYAML
+hurst
+plotly
+kaleido
