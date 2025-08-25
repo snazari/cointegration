@@ -7,3 +7,5 @@ settings:
 pairs_to_analyze:
   - ['IBIT:Nasdaq', 'BTC/USD:Binance']
   - ['COIN:Nasdaq', 'BTC/USD:Binance']
+  - ['BTC/USD:Binance', 'IBIT:Nasdaq']
+  - ['BTC/USD:Binance', 'COIN:Nasdaq']
