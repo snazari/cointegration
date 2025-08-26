@@ -85,27 +85,25 @@ def calculate_hurst_exponent(series):
 # --- Data Handling & Configuration ---
 # --- Module 4: Plotting --- 
 def plot_coint_analysis(raw_df, log_df, spread, start_period, end_period):
-    """Generates and saves a 5-panel Plotly chart of the cointegration analysis."""
+    """Generates and saves a 3-panel Plotly chart of the cointegration analysis."""
     symbol1, symbol2 = raw_df.columns
-    fig = make_subplots(rows=5, cols=1, shared_xaxes=True, 
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
                         subplot_titles=(f'Raw Price: {symbol1}', 
                                         f'Raw Price: {symbol2}', 
-                                        f'Log Price: {symbol1}', 
-                                        f'Log Price: {symbol2}', 
                                         'Cointegrated Spread'))
 
     # Add traces with connectgaps=False to prevent drawing lines over non-trading periods
     fig.add_trace(go.Scatter(x=raw_df.index, y=raw_df[symbol1], name=symbol1, line=dict(color='blue'), connectgaps=False), row=1, col=1)
     fig.add_trace(go.Scatter(x=raw_df.index, y=raw_df[symbol2], name=symbol2, line=dict(color='black'), connectgaps=False), row=2, col=1)
-    fig.add_trace(go.Scatter(x=log_df.index, y=log_df[symbol1], name=f'{symbol1} (Log)', line=dict(color='red'), connectgaps=False), row=3, col=1)
-    fig.add_trace(go.Scatter(x=log_df.index, y=log_df[symbol2], name=f'{symbol2} (Log)', line=dict(color='green'), connectgaps=False), row=4, col=1)
-    fig.add_trace(go.Scatter(x=spread.index, y=spread, name='Spread', line=dict(color='gray'), connectgaps=False), row=5, col=1)
+    #fig.add_trace(go.Scatter(x=log_df.index, y=log_df[symbol1], name=f'{symbol1} (Log)', line=dict(color='red'), connectgaps=False), row=3, col=1)
+    #fig.add_trace(go.Scatter(x=log_df.index, y=log_df[symbol2], name=f'{symbol2} (Log)', line=dict(color='green'), connectgaps=False), row=4, col=1)
+    fig.add_trace(go.Scatter(x=spread.index, y=spread, name='Spread', line=dict(color='gray'), connectgaps=False), row=3, col=1)
     
-    fig.add_hline(y=spread.mean(), line_dash="dash", line_color="red", annotation_text="Mean", row=5, col=1)
+    fig.add_hline(y=spread.mean(), line_dash="dash", line_color="red", annotation_text="Mean", row=3, col=1)
 
     fig.update_layout(
         title_text=f'Cointegration Analysis: {symbol1} & {symbol2} ({start_period} to {end_period})',
-        height=1200, # Increased height for 5 panels
+        height=1200, # Increased height for 3 panels
         showlegend=False
     )
     
@@ -154,6 +152,7 @@ def fetch_data(symbols, start_date, end_date, interval, api_key, alignment='asof
             print(f"Fetching all historical data for {symbol}...")
             all_data = []
             current_end_date = end_date
+            output_size = 800 # Set a realistic batch size
             
             while True:
                 ts = td.time_series(
@@ -161,8 +160,8 @@ def fetch_data(symbols, start_date, end_date, interval, api_key, alignment='asof
                     interval=interval,
                     start_date=start_date,
                     end_date=current_end_date,
+                    outputsize=output_size,
                     timezone='America/New_York',
-                    outputsize=5000
                 ).as_pandas()
 
                 if ts.empty:
@@ -170,7 +169,8 @@ def fetch_data(symbols, start_date, end_date, interval, api_key, alignment='asof
 
                 all_data.append(ts)
                 
-                if len(ts) < 5000:
+                # The loop should break only if the returned data is less than the requested size.
+                if len(ts) < output_size:
                     break  # Fetched all available data
 
                 # Set the end_date for the next batch to the earliest timestamp of the current batch
@@ -248,6 +248,7 @@ def main():
 
     timeframe = settings['timeframe']
     start_period = settings['start_date']
+    end_period = settings['end_date']
     api_key = settings['twelvedata_api_key']
 
     if 'YOUR_API_KEY' in api_key:
@@ -261,7 +262,10 @@ def main():
         print(f"=====================================================")
 
         # Fetch data for both symbols at once to ensure alignment
-        df = fetch_data([symbol1, symbol2], start_period, datetime.now().strftime('%Y-%m-%d'), timeframe, api_key)
+        df = fetch_data([symbol1, symbol2], start_period, end_period, timeframe, api_key)
+        #df = pd.read_csv("sol_ada_data.csv", index_col=0, parse_dates=True)
+        #symbol1 = "ADA_USD_Binance"
+        #symbol2 = "SOL_USD_Binance"
         if df is None or df.empty:
             print("Could not fetch data for one or both symbols. Skipping pair.")
             continue
