@@ -30,7 +30,7 @@ diff_sol_ada = diff(sol_ada);
 %    This will correctly align everything and drop any remaining NaNs
 combined_data = synchronize(diff_sol_ada, ect, 'intersection');
 
-% --- MODEL ESTIMATION 
+% --- MODEL ESTIMATION (this part remains the same) ---
 
 % 8. Define and estimate the VECM
 model = varm(2, 2); % 2 variables, 2 lags
@@ -81,31 +81,26 @@ end
 % --- 5. Visualize the Results ---
 disp('Script finished. Generating plots...');
 
-% --- Plotmister ----
-figure
-s1=subplot(3,1,1)
-plot(s1,sol_ada.datetime, sol_ada.SOL_USD_Binance);
-title('Original Price: SOL-USD');
+% Create the multi-panel plot
+figure;
+t = tiledlayout(2, 2, 'TileSpacing', 'compact');
+title(t, 'Cointegration and VECM Analysis: SOL vs ADA');
+
+% Plot 1: Original Price Series
+figure("")
+plot(sol_ada.datetime, sol_ada.SOL_USD_Binance, sol_ada.datetime, sol_ada.ADA_USD_Binance);
+title('Original Price Series');
 xlabel('Date');
 ylabel('Price');
-legend('SOL', 'Location', 'northwest');
+legend('SOL', 'ADA', 'Location', 'northwest');
 grid on;
 
-s2 = subplot(3,1,2)
-plot(s2, sol_ada.datetime,sol_ada.ADA_USD_Binance)
-title("Original Price: ADA-USD")
-xlabel("Date")
-ylabel("Price")
-legend('ADA', 'Location','northwest')
-grid on;
-
-s3 = subplot(3,1,3)
-plot(s3,time_vector, reg.res);
+% Plot 2: Cointegrating Spread
+nexttile;
+plot(time_vector, reg.res);
 yline(0, 'r--', 'LineWidth', 1.5);
 title('Cointegrating Spread (Residuals)');
 xlabel('Date');
 ylabel('Spread');
-legend('ADA = alpha+beta*SOL')
 grid on;
 
-linkaxes([s1,s2,s3],'x')
