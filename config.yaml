@@ -5,6 +5,9 @@ settings:
   twelvedata_api_key: 'ee7903749ba2480d9bd749be16cc6b23' # <-- IMPORTANT: Replace with your key
 
 pairs_to_analyze:
+  - ['SOL/USD', 'BNB/USD']
+  - ['BNB/USD', 'SOL/USD']
   - ['SOL/USD', 'BTC/USD']
   - ['BTC/USD', 'SOL/USD']
-  
+  - ['BTC/USD', 'BNB/USD']
+  - ['BNB/USD', 'BTC/USD']
