@@ -47,7 +47,7 @@ H = 1; % Measurement matrix: z_k = 1 * x_k
 % --- Estimate Noise Covariances from Training Data ---
 % Q: Process noise covariance. Represents the true volatility of the price.
 % We estimate it as the variance of the daily price changes.
-Q = var(diff(train_data));
+Q = 10*var(diff(train_data));
 
 % R: Measurement noise covariance. Represents the noise in the measurement
 % itself. We assume the price data is quite accurate, so we set this to a
@@ -58,11 +58,9 @@ R = Q / 10; % This is a tunable parameter.
 x_hat = train_data(1); % Initial state estimate (start with the first price)
 P = Q;                 % Initial error covariance
 
-prediction_horizon = 1; % Number of steps to predict ahead
-
 % --- Prepare arrays to store results ---
 x_hat_history = zeros(size(z));      % Stores the filtered estimate
-prediction_history = nan(validation_length, 1); % Use NaN for multi-step predictions
+prediction_history = zeros(validation_length, 1); % Stores one-step-ahead predictions
 
 
 %% --- 4. Run the Kalman Filter Recursively ---
@@ -81,38 +79,19 @@ for k = 1:split_idx
     x_hat_history(k) = x_hat;
 end
 
-% Now, run over the validation data, making multi-step-ahead predictions
-for k = 1:prediction_horizon:validation_length
-    % --- Update Step (Incorporate the actual measurement at step k) ---
-    % First, predict to the current measurement point
-    x_hat_minus = x_hat;
-    P_minus = P;
-    % Note: In the first loop (k=1), we use the state from the training phase.
-    % For subsequent loops, x_hat was already propagated to the start of the horizon.
+% Now, run over the validation data, making one-step-ahead predictions
+for k = 1:validation_length
+    % --- Prediction Step (This is our forecast) ---
+    x_hat_minus = A * x_hat;
+    P_minus = A * P * A' + Q;
+    prediction_history(k) = x_hat_minus; % Store the prediction
 
-    % Update with the measurement at time k
+    % --- Update Step (Incorporate the actual measurement) ---
     K_gain = P_minus * H' / (H * P_minus * H' + R);
     x_hat = x_hat_minus + K_gain * (validation_data(k) - H * x_hat_minus);
     P = (1 - K_gain * H) * P_minus;
+
     x_hat_history(split_idx + k) = x_hat;
-
-    % --- Multi-step Prediction (Forecast for the next horizon) ---
-    x_hat_pred = x_hat;
-    for j = 1:prediction_horizon
-        % Predict one step ahead
-        x_hat_pred = A * x_hat_pred;
-
-        % Store the prediction if it's within the validation data bounds
-        if (k + j) <= validation_length
-            prediction_history(k + j) = x_hat_pred;
-        end
-    end
-    
-    % The state for the next loop is the fully propagated state
-    x_hat = x_hat_pred;
-    % Propagate error covariance as well
-    % A simplified propagation for the whole horizon:
-    for j = 1:prediction_horizon, P = A * P * A' + Q; end
 end
 
 
@@ -152,15 +131,3 @@ ylabel('Error (USD)');
 yline(0, 'r--', 'LineWidth', 1.5, 'DisplayName', 'Zero Error');
 grid on;
 legend('show', 'Location', 'northwest');
-
-%% --- 7. Calculate and Display Error Metrics ---
-
-% Calculate the variance of the prediction error, ignoring NaNs
-variance_error = var(prediction_error, 'omitnan');
-
-% Calculate the Mean Squared Error (MSE), ignoring NaNs
-mse = mean(prediction_error.^2, 'omitnan');
-
-% Display the results in the command window
-fprintf('Prediction Error Variance: %.4f\n', variance_error);
-fprintf('Mean Squared Error (MSE):  %.4f\n', mse);
