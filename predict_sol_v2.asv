@@ -1,0 +1,124 @@
+%% ------------------------------------------------------------------------
+%
+% DMD for SOL-USD Prediction with Train/Validation Split
+%
+% This script builds a DMD model on a training portion of the data and
+% evaluates its predictive performance on a separate validation set.
+%
+% -------------------------------------------------------------------------
+
+clear; clc; close all;
+
+%% --- 1. Load and Prepare Data ---
+
+data = readtable('sol_ada_data.csv');
+sol_price = data.SOL_USD_Binance;
+time_vector = data.datetime;
+
+% Handle missing data
+sol_price = rmmissing(sol_price);
+time_vector = time_vector(~isnan(data.SOL_USD_Binance));
+
+
+%% --- 2. Pre-process the Data ---
+
+% Apply log transformation to stabilize variance.
+sol_price_log = log(sol_price);
+
+% Difference the log prices to get log returns (a more stationary series).
+processed_data = diff(sol_price_log);
+
+
+%% --- 3. Split Data into Training and Validation Sets ---
+
+% Define the split point (2/3 for training, 1/3 for validation).
+split_ratio = 2/3;
+split_idx = floor(length(processed_data) * split_ratio);
+
+% Create the training set from the processed data.
+train_data = processed_data(1:split_idx);
+
+% Create the validation set.
+validation_data = processed_data(split_idx+1:end);
+validation_length = length(validation_data);
+
+
+%% --- 4. Build DMD Model on the Training Set ---
+
+% --- Hyperparameters ---
+% Note: 'K' is now the window size for the Hankel matrix, not the forecast length.
+K = 500; % Window size for building the model.
+r = 100;  % Rank for DMD truncation. Tune this parameter.
+dt = 1;  % Time step.
+
+N_train = length(train_data);
+
+% Build Hankel matrices from the TRAINING data only.
+X_AUG = hankel(train_data(1:K), train_data(K:N_train-1));
+X_AUG_prime = hankel(train_data(2:K+1), train_data(K+1:N_train));
+
+% Perform DMD on the training data.
+[Phi, omega, lambda, b, ~] = DMD(X_AUG, X_AUG_prime, r, dt);
+
+%% --- 5. Forecast Over the Validation Period (Correct Recursive Method) ---
+
+% Initialize the prediction vector for the log returns
+predicted_log_returns = zeros(1, validation_length);
+
+% Get the last 'K' points from the training data as the initial state
+% for the recursive forecast.
+current_state = train_data(end-K+1:end);
+
+% --- Recursive Forecasting Loop ---
+for i = 1:validation_length
+    % Step 1: Project the current state onto the DMD modes to find the current amplitudes.
+    % We use the pseudoinverse (pinv) for a robust projection.
+    b_current = pinv(Phi) * current_state;
+
+    % Step 2: Evolve the amplitudes forward by one time step using the eigenvalues.
+    b_next = b_current .* lambda;
+
+    % Step 3: Reconstruct the state vector for the next time step.
+    next_state = real(Phi * b_next);
+
+    % Step 4: The prediction is the first element of the reconstructed state.
+    predicted_log_returns(i) = next_state(1);
+
+    % Step 5: Update the state for the next iteration (roll the window forward).
+    current_state = [current_state(2:end); predicted_log_returns(i)];
+end
+
+
+% (Sections 6 and 7 for inverse transform and plotting remain the same)
+
+%% --- 6. Inverse Transform the Forecast ---
+
+last_train_log_price = sol_price_log(split_idx + 1);
+predicted_log_prices = cumsum(predicted_log_returns) + last_train_log_price;
+predicted_prices = exp(predicted_log_prices);
+
+
+%% --- 7. Visualize the Results ---
+
+figure('Position', [100, 100, 1200, 600]);
+hold on;
+
+% Define time vectors for plotting
+train_time = time_vector(1:split_idx+1);
+validation_time = time_vector(split_idx+2:end);
+
+% Plot training and validation data
+plot(train_time, sol_price(1:split_idx+1), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Training Data');
+plot(validation_time, sol_price(split_idx+2:end), 'g-', 'LineWidth', 1.5, 'DisplayName', 'Validation Data (Actual)');
+
+% Plot the new DMD prediction
+plot(validation_time, predicted_prices, 'r--', 'LineWidth', 2.0, 'DisplayName', 'DMD Recursive Prediction');
+
+% Add styling
+xline(train_time(end), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Train/Validation Split');
+title('DMD Recursive Prediction vs. Actuals');
+xlabel('Time');
+ylabel('Price (USD)');
+legend('show', 'Location', 'northwest');
+grid on;
+hold off;

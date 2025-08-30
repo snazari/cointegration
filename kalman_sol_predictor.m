@@ -1,0 +1,133 @@
+%% ------------------------------------------------------------------------
+%
+% Kalman Filter for SOL-USD Price Prediction
+%
+% This script uses a simple 1D Kalman filter to track and predict the price
+% of SOL-USD. The model assumes a "random walk," where the price at the
+% next time step is the current price plus some random noise. The filter
+% provides an optimal estimate of the price by balancing this model
+% with the actual measurements.
+%
+% -------------------------------------------------------------------------
+
+clear; clc; close all;
+
+%% --- 1. Load and Prepare Data ---
+
+data = readtable('sol_ada_data.csv');
+sol_price = data.SOL_USD_Binance;
+time_vector = data.datetime;
+
+% Handle any missing data by removing the rows.
+nan_indices = isnan(sol_price);
+sol_price = sol_price(~nan_indices);
+time_vector = time_vector(~nan_indices);
+
+% Get the full vector of price measurements
+z = sol_price; % 'z' is the standard notation for measurements
+
+%% --- 2. Split Data into Training and Validation Sets ---
+
+split_ratio = 2/3;
+split_idx = floor(length(z) * split_ratio);
+
+train_data = z(1:split_idx);
+validation_data = z(split_idx+1:end);
+validation_length = length(validation_data);
+
+
+%% --- 3. Define the Kalman Filter Model & Parameters ---
+
+% For a simple random walk model (price_k = price_k-1 + noise), the
+% state-space matrices are very simple.
+
+A = 1; % State transition matrix: x_k = 1 * x_{k-1}
+H = 1; % Measurement matrix: z_k = 1 * x_k
+
+% --- Estimate Noise Covariances from Training Data ---
+% Q: Process noise covariance. Represents the true volatility of the price.
+% We estimate it as the variance of the daily price changes.
+Q = var(diff(train_data));
+
+% R: Measurement noise covariance. Represents the noise in the measurement
+% itself. We assume the price data is quite accurate, so we set this to a
+% smaller value relative to Q.
+R = Q / 10; % This is a tunable parameter.
+
+% --- Initialize the Filter ---
+x_hat = train_data(1); % Initial state estimate (start with the first price)
+P = Q;                 % Initial error covariance
+
+% --- Prepare arrays to store results ---
+x_hat_history = zeros(size(z));      % Stores the filtered estimate
+prediction_history = zeros(validation_length, 1); % Stores one-step-ahead predictions
+
+
+%% --- 4. Run the Kalman Filter Recursively ---
+
+% First, run the filter over the training data to let it "settle"
+for k = 1:split_idx
+    % Prediction Step
+    x_hat_minus = A * x_hat;
+    P_minus = A * P * A' + Q;
+
+    % Update Step
+    K_gain = P_minus * H' / (H * P_minus * H' + R);
+    x_hat = x_hat_minus + K_gain * (train_data(k) - H * x_hat_minus);
+    P = (1 - K_gain * H) * P_minus;
+
+    x_hat_history(k) = x_hat;
+end
+
+% Now, run over the validation data, making one-step-ahead predictions
+for k = 1:validation_length
+    % --- Prediction Step (This is our forecast) ---
+    x_hat_minus = A * x_hat;
+    P_minus = A * P * A' + Q;
+    prediction_history(k) = x_hat_minus; % Store the prediction
+
+    % --- Update Step (Incorporate the actual measurement) ---
+    K_gain = P_minus * H' / (H * P_minus * H' + R);
+    x_hat = x_hat_minus + K_gain * (validation_data(k) - H * x_hat_minus);
+    P = (1 - K_gain * H) * P_minus;
+
+    x_hat_history(split_idx + k) = x_hat;
+end
+
+
+%% --- 5. Visualize the Results ---
+
+figure('Position', [100, 100, 1200, 600]);
+hold on;
+
+% Define time vectors for plotting each segment
+train_time = time_vector(1:split_idx);
+validation_time = time_vector(split_idx+1:end);
+
+% Plot the original data
+plot(train_time, train_data, 'b-', 'DisplayName', 'Training Data');
+plot(validation_time, validation_data, 'g-', 'LineWidth', 1.5, 'DisplayName', 'Validation Data (Actual)');
+
+% Plot the Kalman filter's one-step-ahead prediction
+plot(validation_time, prediction_history, 'r--', 'LineWidth', 2.0, 'DisplayName', 'Kalman Filter Prediction');
+
+% Add styling and labels
+xline(time_vector(split_idx), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Train/Validation Split');
+title('Kalman Filter Price Prediction vs. Actuals');
+xlabel('Date');
+ylabel('Price (USD)');
+legend('show', 'Location', 'northwest');
+grid on;
+hold off;
+
+%% --- 6. Plot Prediction Error ---
+
+figure('Position', [100, 100, 1200, 400]);
+prediction_error = validation_data - prediction_history;
+plot(validation_time, prediction_error, 'm-', 'DisplayName', 'Prediction Error');
+title('Kalman Filter Prediction Error');
+xlabel('Date');
+ylabel('Error (USD)');
+yline(0, 'r--', 'LineWidth', 1.5, 'DisplayName', 'Zero Error');
+grid on;
+legend('show', 'Location', 'northwest');
