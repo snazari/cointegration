@@ -137,7 +137,7 @@ fprintf('Mean Absolute Error (MAE) - (USD):      %.4f\n\n', mae_1_step);
 
 fprintf('--- 2-Step (30 min) Prediction Performance ---\n');
 fprintf('Mean Squared Error (MSE) - (USD^2):     %.4f\n', mse_2_step);
-fprintf('Root Mean Squared Error (RMSE) - (USD): %.4f\n', rmse_2_step);
+fprintf('Root Mean Squared Error (RMSE) - (USD) : %.4f\n', rmse_2_step);
 fprintf('Mean Absolute Error (MAE) - (USD):      %.4f\n\n', mae_2_step);
 
 
@@ -161,7 +161,7 @@ grid on;
 hold off;
 
 % --- PLOT 2: Prediction Error Over Time ---
-figure('Position', [100, 100, 1200, 500], 'Name', 'Prediction Error Over Time (USD)');
+figure('Position', [100, 100, 1200, 500], 'Name', 'Prediction Error Over Time');
 hold on;
 plot(validation_time, error_1_step, 'r-', 'DisplayName', '1-Step (15 min) Error');
 plot(validation_time(1:end-1), error_2_step, 'm-', 'DisplayName', '2-Step (30 min) Error');
@@ -174,7 +174,7 @@ legend('show', 'Location', 'best');
 hold off;
 
 % --- PLOT 3: Running Mean Squared Error ---
-figure('Position', [100, 100, 1200, 500], 'Name', 'Running Mean Squared Error (USD^2)');
+figure('Position', [100, 100, 1200, 500], 'Name', 'Running Mean Squared Error');
 running_mse_window = 30; % Use a 30-period window
 running_mse_1_step = movmean(error_1_step.^2, running_mse_window);
 running_mse_2_step = movmean(error_2_step.^2, running_mse_window);
@@ -183,7 +183,7 @@ plot(validation_time, running_mse_1_step, 'b-', 'DisplayName', 'Running MSE (1-S
 plot(validation_time(1:end-1), running_mse_2_step, 'c-', 'DisplayName', 'Running MSE (2-Step)');
 title(['Running Mean Squared Error (Window = ' num2str(running_mse_window) ' periods)']);
 xlabel('Date');
-ylabel('MSE (USD^2)');
+ylabel('MSE');
 grid on;
 legend('show', 'Location', 'best');
 
@@ -204,7 +204,6 @@ title('Kalman Filter State Uncertainty: Price');
 xlabel('Date');
 ylabel('Price Variance (P_1_1)');
 grid on;
-ylim([-10 10])
 % Velocity Variance
 subplot(2,1,2);
 plot(validation_time, velocity_variance, 'r-');
@@ -212,4 +211,3 @@ title('Kalman Filter State Uncertainty: Velocity');
 xlabel('Date');
 ylabel('Velocity Variance (P_2_2)');
 grid on;
-ylim([-100 100])
