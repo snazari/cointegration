@@ -130,7 +130,7 @@ plot(train_time, train_data, 'b-', 'DisplayName', 'Training Data');
 plot(validation_time, validation_data, 'g-', 'LineWidth', 1.5, 'DisplayName', 'Validation Data (Actual)');
 
 % Plot the Kalman filter's one-step-ahead prediction
-plot(validation_time, prediction_history, 'r--', 'LineWidth', 2.0, 'DisplayName', 'Kalman Filter Prediction');
+plot(validation_time, prediction_history, 'ro--', 'LineWidth', 2.0, 'DisplayName', 'Kalman Filter Prediction');
 
 % Add styling and labels
 xline(time_vector(split_idx), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Train/Validation Split');
